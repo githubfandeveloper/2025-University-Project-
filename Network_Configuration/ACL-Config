@@ -1,0 +1,91 @@
+conf t
+!
+! ===============================
+! STUDENT VLAN 10  (inbound)
+! ===============================
+no ip access-list extended STUDENT_VLAN_IN
+ip access-list extended STUDENT_VLAN_IN
+ remark Allow web access to cloud LMS only
+ permit tcp 10.86.96.0 0.0.0.63 host <CLOUD_LMS_IP> eq 80
+ permit tcp 10.86.96.0 0.0.0.63 host <CLOUD_LMS_IP> eq 443
+ remark Block other cloud servers
+ deny   ip any 10.0.1.0 0.0.0.31
+ remark Block Staff and Management on-prem
+ deny   ip any 10.86.96.64 0.0.0.31
+ deny   ip any 10.86.96.96 0.0.0.15
+ remark Permit everything else (internet, etc.)
+ permit ip any any
+!
+interface GigabitEthernet0/0/0.10
+ ip access-group STUDENT_VLAN_IN in
+!
+! ===============================
+! STAFF (Teachers) VLAN 20  (inbound)
+! ===============================
+no ip access-list extended STAFF_VLAN_IN
+ip access-list extended STAFF_VLAN_IN
+ remark Allow access to on-prem management portals
+ permit ip 10.86.96.64 0.0.0.31 10.86.96.96 0.0.0.15
+ remark Allow Cloud LMS (HTTP/HTTPS) only
+ permit tcp 10.86.96.64 0.0.0.31 host <CLOUD_LMS_IP> eq 80
+ permit tcp 10.86.96.64 0.0.0.31 host <CLOUD_LMS_IP> eq 443
+ remark Deny students and other cloud servers
+ deny   ip any 10.86.96.0 0.0.0.63
+ deny   ip any 10.0.1.0 0.0.0.31
+ remark Permit internet/general
+ permit ip any any
+!
+interface GigabitEthernet0/0/0.20
+ ip access-group STAFF_VLAN_IN in
+!
+! ===============================
+! Management VLAN 30  (inbound)
+! ===============================
+no ip access-list extended ITOPS_VLAN_IN
+ip access-list extended ITOPS_VLAN_IN
+ remark IT/Ops full access to cloud servers
+ permit ip 10.86.96.96 0.0.0.15 10.0.1.0 0.0.0.31
+ remark IT/Ops to all on-prem subnets
+ permit ip 10.86.96.96 0.0.0.15 10.86.96.0 0.0.0.255
+ remark (Optional) deny direct internet to force through firewall/proxy
+ deny   ip 10.86.96.96 0.0.0.15 any
+ permit ip any any
+!
+interface GigabitEthernet0/0/0.30
+ ip access-group ITOPS_VLAN_IN in
+!
+! ===============================
+! GUEST VLAN 40  (inbound)
+! ===============================
+no ip access-list extended GUEST_VLAN_IN
+ip access-list extended GUEST_VLAN_IN
+ deny ip any 10.86.96.0 0.0.0.63
+ deny ip any 10.86.96.64 0.0.0.31
+ deny ip any 10.86.96.96 0.0.0.15
+ deny ip any 10.86.96.120 0.0.0.3
+ deny ip any 10.0.1.0 0.0.0.31
+ permit ip any any
+!
+interface GigabitEthernet0/0/0.40
+ ip access-group GUEST_VLAN_IN in
+!
+! ===============================
+! ADMIN VLAN 50  (inbound)
+! ===============================
+no ip access-list extended ADMIN_VLAN_IN
+ip access-list extended ADMIN_VLAN_IN
+ remark Admin to cloud admin endpoints
+ permit ip 10.86.96.120 0.0.0.3 host <CLOUD_DC_IP>
+ permit ip 10.86.96.120 0.0.0.3 host <CLOUD_JUMPBOX_IP>
+ remark Admin to on-prem infra
+ permit ip 10.86.96.120 0.0.0.3 host 10.86.96.121      ! Router mgmt (adjust if different)
+ permit ip 10.86.96.120 0.0.0.3 host <FIREWALL_IP>
+ remark No user VLAN access
+ deny   ip any 10.86.96.0 0.0.0.127
+ permit ip any any
+!
+interface GigabitEthernet0/0/0.50
+ ip access-group ADMIN_VLAN_IN in
+!
+end
+write
